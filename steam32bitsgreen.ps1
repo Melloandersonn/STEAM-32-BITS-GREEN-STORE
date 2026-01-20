@@ -67,7 +67,7 @@ function Stop-SteamProcesses {
     Write-Host "Encerrando processos do Steam..." -ForegroundColor Gray
     Get-Process steam -ErrorAction SilentlyContinue | ForEach-Object {
         try {
-            $_ | Stop-Process -Force
+            Stop-Process -Id $_.Id -Force
         } catch {
             Stop-OnError "Falha ao encerrar processos do Steam." $_.Exception.Message "Stop-SteamProcesses"
         }
@@ -118,7 +118,13 @@ function Get-SteamPath {
     foreach ($path in $regPaths) {
         if (Test-Path $path) {
             $prop = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
-            $steamPath = $prop.SteamPath ?? $prop.InstallPath
+
+            if ($prop.SteamPath) {
+                $steamPath = $prop.SteamPath
+            } elseif ($prop.InstallPath) {
+                $steamPath = $prop.InstallPath
+            }
+
             if ($steamPath -and (Test-Path $steamPath)) {
                 return $steamPath
             }
