@@ -6,6 +6,10 @@ Clear-Host
 # CONFIG PROGRESS BAR
 # ===============================================================
 
+$global:ProgressPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
+
+
 $global:TotalSteps = 6
 $global:CurrentStep = 0
 
