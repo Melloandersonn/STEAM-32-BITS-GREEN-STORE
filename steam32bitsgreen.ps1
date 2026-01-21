@@ -1,195 +1,251 @@
 #Requires -Version 5.1
-# Downgrader Steam 32-bit
-# Obtém o caminho do Steam pelo registro e executa com parâmetros específicos
+# Steam 32-bit Downgrader with Christmas Theme
+# Obtém o caminho do Steam pelo registro e executa com parâmetros especificados
 
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
+# Limpar tela
 Clear-Host
 
+# Cabeçalho com tema de Natal
 Write-Host ""
 Write-Host "===============================================================" -ForegroundColor DarkYellow
-Write-Host "Steam Downgrader 32-bit - por https://discord.gg/greenstore" -ForegroundColor Cyan
+Write-Host "Steam 32-bit Downgrader - por discord.gg/luatools (entre para se divertir)" -ForegroundColor Cyan
 Write-Host "===============================================================" -ForegroundColor DarkYellow
 Write-Host ""
 
-# ===============================================================
-# GARANTIR DIRETÓRIO TEMP
-# ===============================================================
-
+# Garantir que o diretório temp exista (correção para sistemas onde $env:TEMP aponta para um diretório inexistente)
 if (-not $env:TEMP -or -not (Test-Path $env:TEMP)) {
+    # Fallback para o AppData\Local\Temp do usuário
     if ($env:LOCALAPPDATA -and (Test-Path $env:LOCALAPPDATA)) {
         $env:TEMP = Join-Path $env:LOCALAPPDATA "Temp"
-    } else {
-        $env:TEMP = Join-Path (Get-Location).Path "temp"
+    }
+    # Se ainda não for válido, tentar a última opção
+    if (-not $env:TEMP -or -not (Test-Path $env:TEMP)) {
+        # Última opção: criar um diretório temp no local do script ou no diretório atual
+        if ($PSScriptRoot) {
+            $env:TEMP = Join-Path $PSScriptRoot "temp"
+        } else {
+            $env:TEMP = Join-Path (Get-Location).Path "temp"
+        }
     }
 }
-
+# Garantir que o diretório temp exista
 if (-not (Test-Path $env:TEMP)) {
     New-Item -ItemType Directory -Path $env:TEMP -Force | Out-Null
 }
 
-# ===============================================================
-# FUNÇÕES
-# ===============================================================
-
+# Função para pausar o script e explicar o erro
 function Stop-OnError {
     param(
         [string]$ErrorMessage,
         [string]$ErrorDetails = "",
         [string]$StepName = ""
     )
-
+    
     Write-Host ""
     Write-Host "===============================================================" -ForegroundColor Red
-    Write-Host "ERROR OCCURRED" -ForegroundColor Red
+    Write-Host "OCORREU UM ERRO" -ForegroundColor Red
     if ($StepName) {
-        Write-Host "Step: $StepName" -ForegroundColor Yellow
+        Write-Host "Passo: $StepName" -ForegroundColor Yellow
     }
     Write-Host "===============================================================" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Error Message: $ErrorMessage" -ForegroundColor Red
+    Write-Host "Mensagem de erro: $ErrorMessage" -ForegroundColor Red
     if ($ErrorDetails) {
         Write-Host ""
-        Write-Host "Details: $ErrorDetails" -ForegroundColor Yellow
+        Write-Host "Detalhes: $ErrorDetails" -ForegroundColor Yellow
     }
     Write-Host ""
-    Write-Host "The script cannot continue due to this error." -ForegroundColor Yellow
-    Write-Host "Please resolve the issue and try again." -ForegroundColor Yellow
+    Write-Host "O script não pode continuar devido a este erro." -ForegroundColor Yellow
+    Write-Host "Por favor, resolva o problema e tente novamente." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "===============================================================" -ForegroundColor Red
-    Write-Host "Exiting..." -ForegroundColor Red
+    Write-Host "Saindo..." -ForegroundColor Red
     Write-Host "===============================================================" -ForegroundColor Red
     exit 1
 }
 
-function Stop-SteamProcesses {
-    Write-Host "Encerrando processos do Steam..." -ForegroundColor Gray
-    Get-Process steam -ErrorAction SilentlyContinue | ForEach-Object {
-        try {
-            Stop-Process -Id $_.Id -Force
-        } catch {
-            Stop-OnError "Falha ao encerrar processos do Steam." $_.Exception.Message "Stop-SteamProcesses"
-        }
-    }
-}
-
-function Download-AndExtractWithFallback {
-    param (
-        [string]$PrimaryUrl,
-        [string]$FallbackUrl,
-        [string]$TempZipPath,
-        [string]$DestinationPath,
-        [string]$Description
-    )
-
-    Write-Host "Baixando: $Description" -ForegroundColor Gray
-
-    try {
-        Invoke-WebRequest -Uri $PrimaryUrl -OutFile $TempZipPath -UseBasicParsing
-    } catch {
-        Write-Host "Falha no link principal. Tentando fallback..." -ForegroundColor Yellow
-        try {
-            Invoke-WebRequest -Uri $FallbackUrl -OutFile $TempZipPath -UseBasicParsing
-        } catch {
-            Stop-OnError "Falha ao baixar arquivo." $_.Exception.Message "Download"
-        }
-    }
-
-    try {
-        Expand-Archive -Path $TempZipPath -DestinationPath $DestinationPath -Force
-        Remove-Item $TempZipPath -Force
-    } catch {
-        Stop-OnError "Falha ao extrair arquivos." $_.Exception.Message "Extract"
-    }
-}
-
+# Função para obter o caminho do Steam do registro
 function Get-SteamPath {
-    Write-Host "Procurando instalação do Steam..." -ForegroundColor Gray
-
-    $regPaths = @(
-        "HKCU:\Software\Valve\Steam",
-        "HKLM:\Software\Valve\Steam",
-        "HKLM:\Software\WOW6432Node\Valve\Steam"
-    )
-
-    foreach ($path in $regPaths) {
-        if (Test-Path $path) {
-            $prop = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
-            $steamPath = $null
-
-            if ($prop.SteamPath) {
-                $steamPath = $prop.SteamPath
-            } elseif ($prop.InstallPath) {
-                $steamPath = $prop.InstallPath
-            }
-
-            if ($steamPath -and (Test-Path $steamPath)) {
-                return $steamPath
-            }
+    $steamPath = $null
+    
+    Write-Host "Procurando pela instalação do Steam..." -ForegroundColor Gray
+    
+    # Tentar HKCU primeiro (registro do usuário)
+    $regPath = "HKCU:\Software\Valve\Steam"
+    if (Test-Path $regPath) {
+        $steamPath = (Get-ItemProperty -Path $regPath -Name "SteamPath" -ErrorAction SilentlyContinue).SteamPath
+        if ($steamPath -and (Test-Path $steamPath)) {
+            return $steamPath
         }
     }
-
+    
+    # Tentar HKLM (registro do sistema)
+    $regPath = "HKLM:\Software\Valve\Steam"
+    if (Test-Path $regPath) {
+        $steamPath = (Get-ItemProperty -Path $regPath -Name "InstallPath" -ErrorAction SilentlyContinue).InstallPath
+        if ($steamPath -and (Test-Path $steamPath)) {
+            return $steamPath
+        }
+    }
+    
+    # Tentar o registro de 32 bits em sistemas de 64 bits
+    $regPath = "HKLM:\Software\WOW6432Node\Valve\Steam"
+    if (Test-Path $regPath) {
+        $steamPath = (Get-ItemProperty -Path $regPath -Name "InstallPath" -ErrorAction SilentlyContinue).InstallPath
+        if ($steamPath -and (Test-Path $steamPath)) {
+            return $steamPath
+        }
+    }
+    
     return $null
 }
 
-# ===============================================================
-# EXECUÇÃO
-# ===============================================================
-
-Write-Host "Etapa 0: Localizando instalação do Steam..." -ForegroundColor Yellow
-$steamPath = Get-SteamPath
-
-if (-not $steamPath) {
-    Stop-OnError "Steam installation not found in registry." "" "Detect Steam"
+# Função para baixar arquivo com barra de progresso
+function Download-FileWithProgress {
+    param(
+        [string]$Url,
+        [string]$OutFile
+    )
+    
+    try {
+        # Adicionar quebra de cache para evitar cache do PowerShell
+        $uri = New-Object System.Uri($Url)
+        $uriBuilder = New-Object System.UriBuilder($uri)
+        $timestamp = (Get-Date -Format 'yyyyMMddHHmmss')
+        if ($uriBuilder.Query) {
+            $uriBuilder.Query = $uriBuilder.Query.TrimStart('?') + "&t=" + $timestamp
+        } else {
+            $uriBuilder.Query = "t=" + $timestamp
+        }
+        $cacheBustUrl = $uriBuilder.ToString()
+        
+        # Primeira solicitação para obter o comprimento do conteúdo e verificar a resposta
+        $request = [System.Net.HttpWebRequest]::Create($cacheBustUrl)
+        $request.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore)
+        $request.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+        $request.Headers.Add("Pragma", "no-cache")
+        $request.Timeout = 30000 # Timeout de 30 segundos
+        $request.ReadWriteTimeout = 30000
+        
+        try {
+            $response = $request.GetResponse()
+        } catch {
+            Write-Host "  [ERRO] Conexão falhou: $_" -ForegroundColor Red
+            Write-Host "  [ERRO] URL: $cacheBustUrl" -ForegroundColor Red
+            throw "Tempo de conexão ou falha ao conectar ao servidor"
+        }
+        
+        # Verificar código de resposta
+        $statusCode = [int]$response.StatusCode
+        if ($statusCode -ne 200) {
+            $response.Close()
+            Write-Host "  [ERRO] Código de resposta inválido: $statusCode (esperado 200)" -ForegroundColor Red
+            Write-Host "  [ERRO] URL: $cacheBustUrl" -ForegroundColor Red
+            throw "Servidor retornou o código de status $statusCode em vez de 200"
+        }
+        
+        # Verificar comprimento do conteúdo
+        $totalLength = $response.ContentLength
+        if ($totalLength -eq 0) {
+            $response.Close()
+            Write-Host "  [ERRO] Comprimento do conteúdo inválido: $totalLength (esperado > 0 ou -1 para desconhecido)" -ForegroundColor Red
+            Write-Host "  [ERRO] URL: $cacheBustUrl" -ForegroundColor Red
+            throw "Servidor retornou comprimento de conteúdo zero"
+        }
+        $response.Close()
+        
+        # Solicitação para baixar o arquivo (sem timeout)
+        $request = [System.Net.HttpWebRequest]::Create($cacheBustUrl)
+        $request.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore)
+        $request.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+        $request.Headers.Add("Pragma", "no-cache")
+        $request.Timeout = -1 # Sem timeout
+        $request.ReadWriteTimeout = -1 # Sem timeout
+        
+        $response = $null
+        try {
+            $response = $request.GetResponse()
+        } catch {
+            Write-Host "  [ERRO] Falha na conexão de download: $_" -ForegroundColor Red
+            Write-Host "  [ERRO] URL: $cacheBustUrl" -ForegroundColor Red
+            throw "Falha de conexão durante o download"
+        }
+        
+        try {
+            # Garantir que o diretório de saída exista
+            $outDir = Split-Path $OutFile -Parent
+            if ($outDir -and -not (Test-Path $outDir)) {
+                New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+            }
+            
+            $responseStream = $null
+            $targetStream = $null
+            $responseStream = $response.GetResponseStream()
+            $targetStream = New-Object -TypeName System.IO.FileStream -ArgumentList $OutFile, Create
+            
+            $buffer = New-Object byte[] (10 * 1024)  # Buffer de 10KB
+            $count = $responseStream.Read($buffer, 0, $buffer.Length)
+            $downloadedBytes = $count
+            $lastUpdate = Get-Date
+            $lastBytesDownloaded = $downloadedBytes
+            $lastBytesUpdateTime = Get-Date
+            $stuckTimeoutSeconds = 60 # Timeout de 1 minuto para downloads travados
+            
+            while ($count -gt 0) {
+                $targetStream.Write($buffer, 0, $count)
+                $count = $responseStream.Read($buffer, 0, $buffer.Length)
+                $downloadedBytes += $count
+                
+                # Verificar se o download está travado
+                $now = Get-Date
+                if ($downloadedBytes -gt $lastBytesDownloaded) {
+                    # Bytes aumentaram, reiniciar o timer
+                    $lastBytesDownloaded = $downloadedBytes
+                    $lastBytesUpdateTime = $now
+                } else {
+                    # Nenhum byte foi baixado, verificar se está travado
+                    $timeSinceLastBytes = ($now - $lastBytesUpdateTime).TotalSeconds
+                    if ($timeSinceLastBytes -ge $stuckTimeoutSeconds) {
+                        Write-Host ""
+                        Write-Host "  [ERRO] Download travado (0 kbps por $stuckTimeoutSeconds segundos)" -ForegroundColor Red
+                        Write-Host "  [ERRO] Baixado: $downloadedBytes bytes, Esperado: $totalLength bytes" -ForegroundColor Red
+                        throw "Download travado - sem dados recebidos por $stuckTimeoutSeconds segundos"
+                    }
+                }
+                
+                # Atualizar progresso a cada 100ms
+                if (($now - $lastUpdate).TotalMilliseconds -ge 100) {
+                    if ($totalLength -gt 0) {
+                        $percentComplete = [math]::Round(($downloadedBytes / $totalLength) * 100, 2)
+                        Write-Host "`r  Progresso: $percentComplete% ($downloadedBytes bytes de $totalLength bytes)" -NoNewline -ForegroundColor Cyan
+                    } else {
+                        Write-Host "`r  Progresso: Baixando $downloadedBytes bytes..." -NoNewline -ForegroundColor Cyan
+                    }
+                    $lastUpdate = $now
+                }
+            }
+            
+            Write-Host "`r  Progresso: 100% Completo!" -ForegroundColor Green
+            Write-Host ""
+            return $true
+        } finally {
+            # Fechar streams
+            if ($targetStream) {
+                $targetStream.Close()
+            }
+            if ($responseStream) {
+                $responseStream.Close()
+            }
+            if ($response) {
+                $response.Close()
+            }
+        }
+    } catch {
+        Write-Host ""
+        Write-Host "  [ERRO] Falha no download: $_" -ForegroundColor Red
+        Write-Host "  [ERRO] Detalhes do erro: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host ""
+        throw $_
+    }
 }
 
-$steamExePath = Join-Path $steamPath "Steam.exe"
-
-if (-not (Test-Path $steamExePath)) {
-    Stop-OnError "Steam.exe não encontrado." $steamExePath "Detect Steam"
-}
-
-Write-Host "Steam encontrado com sucesso!" -ForegroundColor Green
-Write-Host "Local: $steamPath" -ForegroundColor White
-Write-Host ""
-
-Write-Host "Etapa 1: Encerrando processos do Steam..." -ForegroundColor Yellow
-Stop-SteamProcesses
-Write-Host ""
-
-Write-Host "Etapa 2: Baixando e extraindo Steam 32-bit..." -ForegroundColor Yellow
-$steamZipUrl = "https://github.com/madoiscool/lt_api_links/releases/download/unsteam/latest32bitsteam.zip"
-$steamZipFallbackUrl = "http://files.luatools.work/OneOffFiles/latest32bitsteam.zip"
-$tempSteamZip = Join-Path $env:TEMP "latest32bitsteam.zip"
-
-Download-AndExtractWithFallback `
-    -PrimaryUrl $steamZipUrl `
-    -FallbackUrl $steamZipFallbackUrl `
-    -TempZipPath $tempSteamZip `
-    -DestinationPath $steamPath `
-    -Description "Steam x32 Latest Build"
-
-Write-Host "Etapa 3: Criando steam.cfg..." -ForegroundColor Yellow
-$steamCfgPath = Join-Path $steamPath "steam.cfg"
-$cfgContent = "BootStrapperInhibitAll=enable`nBootStrapperForceSelfUpdate=disable"
-Set-Content -Path $steamCfgPath -Value $cfgContent -Force
-
-Write-Host "steam.cfg criado com sucesso!" -ForegroundColor Green
-Write-Host ""
-
-Write-Host "Etapa 4: Iniciando Steam..." -ForegroundColor Yellow
-Start-Process -FilePath $steamExePath -ArgumentList "-clearbeta" -WindowStyle Normal
-
-Write-Host ""
-Write-Host "Steam iniciado com sucesso." -ForegroundColor Green
-
-# Definindo a codificação para UTF-8 (caso seja necessário)
-$OutputEncoding = [System.Text.Encoding]::UTF8
-
-# Exibindo a mensagem de sucesso
-Write-Host ""
-Write-Host "=====================================================" -ForegroundColor Green
-Write-Host "              Steam foi voltada para 32 bits! 🎉              " -ForegroundColor Green
-Write-Host "=====================================================" -ForegroundColor Green
-Write-Host "        Parabéns, a Steam foi revertida para a versão de 32 bits com sucesso!" -ForegroundColor Green
-Write-Host ""
