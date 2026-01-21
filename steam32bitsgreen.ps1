@@ -182,3 +182,50 @@ Start-Process -FilePath $steamExePath -ArgumentList "-clearbeta" -WindowStyle No
 
 Write-Host ""
 Write-Host "Steam iniciado com sucesso." -ForegroundColor Green
+
+# ===============================================================
+# MASCOTE / PAPAGAIO FELIZ - ASCII Art
+# ===============================================================
+
+Write-Host ""
+Write-Host '────────────────────░███░' -ForegroundColor Green
+Write-Host '───────────────────░█░░░█░' -ForegroundColor Green
+Write-Host '──────────────────░█░░░░░█░' -ForegroundColor Green
+Write-Host '─────────────────░█░░░░░█░' -ForegroundColor Green
+Write-Host '──────────░░░───░█░░░░░░█░' -ForegroundColor Green
+Write-Host '─────────░███░──░█░░░░░█░' -ForegroundColor Green
+Write-Host '───────░██░░░██░█░░░░░█░' -ForegroundColor Green
+Write-Host '──────░█░░█░░░░██░░░░░█░' -ForegroundColor Green
+Write-Host '────░██░░█░░░░░░█░░░░█░' -ForegroundColor Green
+Write-Host '───░█░░░█░░░░░░░██░░░█░' -ForegroundColor Green
+Write-Host '──░█░░░░█░░░░░░░░█░░░█░' -ForegroundColor Green
+Write-Host '──░█░░░░░█░░░░░░░░█░░░█░' -ForegroundColor Green
+Write-Host '──░█░░█░░░█░░░░░░░░█░░█░' -ForegroundColor Green
+Write-Host '─░█░░░█░░░░██░░░░░░█░░█░' -ForegroundColor Green
+Write-Host '─░█░░░░█░░░░░██░░░█░░░█░' -ForegroundColor Green
+Write-Host '─░█░█░░░█░░░░░░███░░░░█░' -ForegroundColor Green
+Write-Host '░█░░░█░░░██░░░░░█░░░░░█░' -ForegroundColor Green
+Write-Host '░█░░░░█░░░░█████░░░░░█░' -ForegroundColor Green
+Write-Host '░█░░░░░█░░░░░░░█░░░░░█░' -ForegroundColor Green
+Write-Host '░█░█░░░░██░░░░█░░░░░█░' -ForegroundColor Green
+Write-Host '─░█░█░░░░░████░░░░██░' -ForegroundColor Green
+Write-Host '─░█░░█░░░░░░░█░░██░█░' -ForegroundColor Green
+Write-Host '──░█░░██░░░██░░█░░░█░' -ForegroundColor Green
+Write-Host '───░██░░███░░██░█░░█░' -ForegroundColor Green
+Write-Host '────░██░░░███░░░█░░░█░' -ForegroundColor Green
+Write-Host '──────░███░░░░░░█░░░█░' -ForegroundColor Green
+Write-Host '──────░█░░░░░░░░█░░░█░' -ForegroundColor Green
+Write-Host '──────░█░░░░░░░░░░░░█░' -ForegroundColor Green
+Write-Host '──────░█░░░░░░░░░░░░░█░' -ForegroundColor Green
+Write-Host '──────░█░░░░░░░░░░░░█░' -ForegroundColor Green
+
+# ===============================================================
+# AVISO DE SUCESSO
+# ===============================================================
+
+Write-Host ""
+Write-Host "=====================================================" -ForegroundColor Green
+Write-Host "              Steam foi voltada para 32 bits! 🎉              " -ForegroundColor Green
+Write-Host "=====================================================" -ForegroundColor Green
+Write-Host "        Parabéns, a Steam foi revertida para a versão de 32 bits com sucesso!" -ForegroundColor Green
+Write-Host ""
